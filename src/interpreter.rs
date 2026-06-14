@@ -1,3 +1,5 @@
+use crate::RuntimeError;
+
 /// A simple Brainfuck virtual machine.
 ///
 /// It contains:
@@ -46,12 +48,22 @@ impl Machine {
         self.tape[self.ptr] = value;
     }
 
-    pub fn move_right(&mut self) {
-        unimplemented!();
+    pub fn move_right(&mut self) -> Result<(), RuntimeError> {
+        if self.ptr + 1 >= self.tape.len() {
+            return Err(RuntimeError::PointerOutOfBounds);
+        }
+
+        self.ptr += 1;
+        Ok(())
     }
 
-    pub fn move_left(&mut self) {
-        unimplemented!();
+    pub fn move_left(&mut self) -> Result<(), RuntimeError> {
+        if self.ptr == 0 {
+            return Err(RuntimeError::PointerOutOfBounds);
+        }
+
+        self.ptr -= 1;
+        Ok(())
     }
 }
 
@@ -78,5 +90,37 @@ mod tests {
         m.set_current(255);
         m.inc();
         assert_eq!(m.current(), 0);
+    }
+
+    #[test]
+    fn move_right_increments_ptr() {
+        let mut m = Machine::new();
+        m.move_right().unwrap();
+        assert_eq!(m.ptr, 1);
+    }
+
+    #[test]
+    fn move_left_decrements_ptr() {
+        let mut m = Machine::new();
+        m.move_right().unwrap();
+        m.move_left().unwrap();
+        assert_eq!(m.ptr, 0);
+    }
+
+    #[test]
+    fn move_left_at_zero_errors() {
+        let mut m = Machine::new();
+        let result = m.move_left();
+        assert_eq!(result, Err(RuntimeError::PointerOutOfBounds));
+        assert_eq!(m.ptr, 0);
+    }
+
+    #[test]
+    fn move_right_at_last_cell_errors() {
+        let mut m = Machine::new();
+        m.ptr = 29_999;
+        let result = m.move_right();
+        assert_eq!(result, Err(RuntimeError::PointerOutOfBounds));
+        assert_eq!(m.ptr, 29_999);
     }
 }
