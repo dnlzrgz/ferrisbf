@@ -1,5 +1,5 @@
 use crate::{Instruction, RuntimeError};
-use std::io::{Cursor, Read, Write};
+use std::io::{Read, Write};
 
 /// A simple Brainfuck virtual machine.
 ///
@@ -33,12 +33,17 @@ impl Default for Machine {
 }
 
 impl Machine {
-    pub fn inc(&mut self) {
-        self.tape[self.ptr] = self.tape[self.ptr].wrapping_add(1);
+    pub fn add(&mut self, n: u8) {
+        self.tape[self.ptr] = self.tape[self.ptr].wrapping_add(n);
     }
 
-    pub fn dec(&mut self) {
-        self.tape[self.ptr] = self.tape[self.ptr].wrapping_sub(1);
+    pub fn shift(&mut self, n: isize) -> Result<(), RuntimeError> {
+        let new_ptr = self.ptr as isize + n;
+        if new_ptr < 0 || new_ptr as usize >= self.tape.len() {
+            return Err(RuntimeError::PointerOutOfBounds);
+        }
+        self.ptr = new_ptr as usize;
+        Ok(())
     }
 
     pub fn current(&self) -> u8 {
@@ -49,24 +54,6 @@ impl Machine {
         self.tape[self.ptr] = value;
     }
 
-    pub fn move_right(&mut self) -> Result<(), RuntimeError> {
-        if self.ptr + 1 >= self.tape.len() {
-            return Err(RuntimeError::PointerOutOfBounds);
-        }
-
-        self.ptr += 1;
-        Ok(())
-    }
-
-    pub fn move_left(&mut self) -> Result<(), RuntimeError> {
-        if self.ptr == 0 {
-            return Err(RuntimeError::PointerOutOfBounds);
-        }
-
-        self.ptr -= 1;
-        Ok(())
-    }
-
     pub fn output(&self, writer: &mut impl Write) -> Result<(), RuntimeError> {
         writer
             .write_all(&[self.current()])
@@ -74,7 +61,7 @@ impl Machine {
     }
 
     pub fn read(&mut self, reader: &mut impl Read) -> Result<(), RuntimeError> {
-        let mut buf = [0u8, 1];
+        let mut buf = [0u8; 1];
         match reader.read(&mut buf) {
             Ok(0) => Ok(()), // EOF
             Ok(_) => {
@@ -100,10 +87,8 @@ pub fn run<R: Read, W: Write>(
 
     while pc < program.len() {
         match program[pc] {
-            Instruction::MoveRight => machine.move_right()?,
-            Instruction::MoveLeft => machine.move_left()?,
-            Instruction::Inc => machine.inc(),
-            Instruction::Dec => machine.dec(),
+            Instruction::Add(n) => machine.add(n),
+            Instruction::Move(n) => machine.shift(n)?,
             Instruction::Write => machine.output(output)?,
             Instruction::Read => machine.read(input)?,
             Instruction::JumpIfZero(target) => {
@@ -129,6 +114,7 @@ pub fn run<R: Read, W: Write>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn new_machine_starts_at_zero() {
@@ -137,48 +123,48 @@ mod tests {
     }
 
     #[test]
-    fn dec_wraps_on_overflow() {
+    fn add_wraps_on_overflow_down() {
         let mut m = Machine::new();
-        m.dec();
+        m.add(255);
         assert_eq!(m.current(), 255);
     }
 
     #[test]
-    fn inc_wraps_on_overflow() {
+    fn add_wraps_on_overflow_up() {
         let mut m = Machine::new();
         m.set_current(255);
-        m.inc();
+        m.add(1);
         assert_eq!(m.current(), 0);
     }
 
     #[test]
-    fn move_right_increments_ptr() {
+    fn shift_right_increments_ptr() {
         let mut m = Machine::new();
-        m.move_right().unwrap();
+        m.shift(1).unwrap();
         assert_eq!(m.ptr, 1);
     }
 
     #[test]
-    fn move_left_decrements_ptr() {
+    fn shift_left_decrements_ptr() {
         let mut m = Machine::new();
-        m.move_right().unwrap();
-        m.move_left().unwrap();
+        m.shift(1).unwrap();
+        m.shift(-1).unwrap();
         assert_eq!(m.ptr, 0);
     }
 
     #[test]
-    fn move_left_at_zero_errors() {
+    fn shift_left_ar_zero_errors() {
         let mut m = Machine::new();
-        let result = m.move_left();
+        let result = m.shift(-1);
         assert_eq!(result, Err(RuntimeError::PointerOutOfBounds));
         assert_eq!(m.ptr, 0);
     }
 
     #[test]
-    fn move_right_at_last_cell_errors() {
+    fn shift_right_at_last_cell_errors() {
         let mut m = Machine::new();
         m.ptr = 29_999;
-        let result = m.move_right();
+        let result = m.shift(1);
         assert_eq!(result, Err(RuntimeError::PointerOutOfBounds));
         assert_eq!(m.ptr, 29_999);
     }

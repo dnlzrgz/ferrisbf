@@ -2,10 +2,8 @@ use crate::error::ParseError;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Instruction {
-    MoveRight,            // >
-    MoveLeft,             // <
-    Inc,                  // +
-    Dec,                  // -
+    Move(isize),          // <,>
+    Add(u8),              // +,-
     Write,                // .
     Read,                 // ,
     JumpIfZero(usize),    // [
@@ -14,21 +12,48 @@ pub enum Instruction {
 
 /// Parses Brainfunc source code into a sequence of instructions.
 pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
+    let chars: Vec<char> = source.chars().collect();
     let mut instructions: Vec<Instruction> = Vec::new();
     let mut bracket_stack: Vec<usize> = Vec::new();
+    let mut i = 0;
 
-    for ch in source.chars() {
-        match ch {
-            '>' => instructions.push(Instruction::MoveRight),
-            '<' => instructions.push(Instruction::MoveLeft),
-            '+' => instructions.push(Instruction::Inc),
-            '-' => instructions.push(Instruction::Dec),
-            '.' => instructions.push(Instruction::Write),
-            ',' => instructions.push(Instruction::Read),
+    while i < chars.len() {
+        match chars[i] {
+            '>' | '<' => {
+                let mut net = 0;
+                while i < chars.len() && (chars[i] == '>' || chars[i] == '<') {
+                    net += if chars[i] == '>' { 1 } else { -1 };
+                    i += 1;
+                }
+                if net != 0 {
+                    instructions.push(Instruction::Move(net));
+                }
+            }
+            '+' | '-' => {
+                let mut net: i32 = 0;
+                while i < chars.len() && (chars[i] == '+' || chars[i] == '-') {
+                    net += if chars[i] == '+' { 1 } else { -1 };
+                    i += 1;
+                }
+
+                let amount = net.rem_euclid(256) as u8;
+                if amount != 0 {
+                    instructions.push(Instruction::Add(amount));
+                }
+            }
+            '.' => {
+                instructions.push(Instruction::Write);
+                i += 1;
+            }
+            ',' => {
+                instructions.push(Instruction::Read);
+                i += 1;
+            }
             '[' => {
                 // target is known at this time, so we use 0.
                 instructions.push(Instruction::JumpIfZero(0));
                 bracket_stack.push(instructions.len() - 1);
+                i += 1;
             }
             ']' => {
                 let open_index = bracket_stack
@@ -38,8 +63,11 @@ pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
 
                 instructions.push(Instruction::JumpIfNonZero(open_index));
                 instructions[open_index] = Instruction::JumpIfZero(close_index);
+                i += 1;
             }
-            _ => {}
+            _ => {
+                i += 1;
+            }
         }
     }
 
@@ -55,25 +83,21 @@ mod tests {
     use super::*;
 
     #[test]
+    fn instructions_are_collapsed_correctly() {
+        let result = parse("+++---+>>><<<>").unwrap();
+        assert_eq!(result, vec![Instruction::Add(1), Instruction::Move(1)]);
+    }
+
+    #[test]
     fn parse_parses_simple_commands() {
         let result = parse("+-><.,").unwrap();
-        assert_eq!(
-            result,
-            vec![
-                Instruction::Inc,
-                Instruction::Dec,
-                Instruction::MoveRight,
-                Instruction::MoveLeft,
-                Instruction::Write,
-                Instruction::Read,
-            ]
-        );
+        assert_eq!(result, vec![Instruction::Write, Instruction::Read,]);
     }
 
     #[test]
     fn parse_ignores_non_command_characters() {
         let result = parse("+ hello \n\t - world").unwrap();
-        assert_eq!(result, vec![Instruction::Inc, Instruction::Dec]);
+        assert_eq!(result, vec![Instruction::Add(1), Instruction::Add(255)]);
     }
 
     #[test]
@@ -83,7 +107,7 @@ mod tests {
             result,
             vec![
                 Instruction::JumpIfZero(2),
-                Instruction::Dec,
+                Instruction::Add(255),
                 Instruction::JumpIfNonZero(0),
             ]
         );
@@ -97,7 +121,7 @@ mod tests {
             vec![
                 Instruction::JumpIfZero(4),
                 Instruction::JumpIfZero(3),
-                Instruction::Dec,
+                Instruction::Add(255),
                 Instruction::JumpIfNonZero(1),
                 Instruction::JumpIfNonZero(0),
             ]

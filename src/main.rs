@@ -16,5 +16,6 @@ fn main() {
         .unwrap_or_else(|e| panic!("failed to read {}: {e}", cli.path.display()));
     let program = parse(&source).expect("failed to parse program");
     let mut machine = Machine::new();
+
     run(&mut machine, &program, &mut io::stdin(), &mut io::stdout()).expect("runtime error");
 }
