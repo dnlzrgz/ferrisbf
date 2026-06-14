@@ -1,4 +1,5 @@
 use crate::RuntimeError;
+use std::io::{Cursor, Read, Write};
 
 /// A simple Brainfuck virtual machine.
 ///
@@ -65,6 +66,24 @@ impl Machine {
         self.ptr -= 1;
         Ok(())
     }
+
+    pub fn output(&self, writer: &mut impl Write) -> Result<(), RuntimeError> {
+        writer
+            .write_all(&[self.current()])
+            .map_err(|_| RuntimeError::IoError)
+    }
+
+    pub fn read(&mut self, reader: &mut impl Read) -> Result<(), RuntimeError> {
+        let mut buf = [0u8, 1];
+        match reader.read(&mut buf) {
+            Ok(0) => Ok(()), // EOF
+            Ok(_) => {
+                self.set_current(buf[0]);
+                Ok(())
+            }
+            Err(_) => Err(RuntimeError::IoError),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -122,5 +141,22 @@ mod tests {
         let result = m.move_right();
         assert_eq!(result, Err(RuntimeError::PointerOutOfBounds));
         assert_eq!(m.ptr, 29_999);
+    }
+
+    #[test]
+    fn read_reads_byte_into_current_cell() {
+        let mut m = Machine::new();
+        let mut input = Cursor::new(vec![65u8]); // 'A'
+        m.read(&mut input).unwrap();
+        assert_eq!(m.current(), 65);
+    }
+
+    #[test]
+    fn output_writes_current_cell() {
+        let mut m = Machine::new();
+        m.set_current(65);
+        let mut output = Vec::new();
+        m.output(&mut output).unwrap();
+        assert_eq!(output, vec![65]);
     }
 }

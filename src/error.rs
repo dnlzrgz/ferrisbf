@@ -4,6 +4,7 @@ use std::fmt;
 #[derive(Debug, PartialEq, Eq)]
 pub enum RuntimeError {
     PointerOutOfBounds,
+    IoError,
 }
 
 impl fmt::Display for RuntimeError {
@@ -11,6 +12,9 @@ impl fmt::Display for RuntimeError {
         match self {
             RuntimeError::PointerOutOfBounds => {
                 write!(f, "pointer moved out of bound of the tape")
+            }
+            RuntimeError::IoError => {
+                write!(f, "failed to read or write data")
             }
         }
     }
