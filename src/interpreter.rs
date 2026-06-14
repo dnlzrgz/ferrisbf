@@ -34,7 +34,8 @@ impl Default for Machine {
 
 impl Machine {
     pub fn add(&mut self, n: u8) {
-        self.tape[self.ptr] = self.tape[self.ptr].wrapping_add(n);
+        let cell = &mut self.tape[self.ptr];
+        *cell = cell.wrapping_add(n);
     }
 
     pub fn shift(&mut self, n: isize) -> Result<(), RuntimeError> {

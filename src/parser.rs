@@ -12,27 +12,27 @@ pub enum Instruction {
 
 /// Parses Brainfunc source code into a sequence of instructions.
 pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
-    let chars: Vec<char> = source.chars().collect();
+    let bytes = source.as_bytes();
     let mut instructions: Vec<Instruction> = Vec::new();
     let mut bracket_stack: Vec<usize> = Vec::new();
     let mut i = 0;
 
-    while i < chars.len() {
-        match chars[i] {
-            '>' | '<' => {
+    while i < bytes.len() {
+        match bytes[i] {
+            b'>' | b'<' => {
                 let mut net = 0;
-                while i < chars.len() && (chars[i] == '>' || chars[i] == '<') {
-                    net += if chars[i] == '>' { 1 } else { -1 };
+                while i < bytes.len() && (bytes[i] == b'>' || bytes[i] == b'<') {
+                    net += if bytes[i] == b'>' { 1 } else { -1 };
                     i += 1;
                 }
                 if net != 0 {
                     instructions.push(Instruction::Move(net));
                 }
             }
-            '+' | '-' => {
+            b'+' | b'-' => {
                 let mut net: i32 = 0;
-                while i < chars.len() && (chars[i] == '+' || chars[i] == '-') {
-                    net += if chars[i] == '+' { 1 } else { -1 };
+                while i < bytes.len() && (bytes[i] == b'+' || bytes[i] == b'-') {
+                    net += if bytes[i] == b'+' { 1 } else { -1 };
                     i += 1;
                 }
 
@@ -41,21 +41,21 @@ pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
                     instructions.push(Instruction::Add(amount));
                 }
             }
-            '.' => {
+            b'.' => {
                 instructions.push(Instruction::Write);
                 i += 1;
             }
-            ',' => {
+            b',' => {
                 instructions.push(Instruction::Read);
                 i += 1;
             }
-            '[' => {
+            b'[' => {
                 // target is known at this time, so we use 0.
                 instructions.push(Instruction::JumpIfZero(0));
                 bracket_stack.push(instructions.len() - 1);
                 i += 1;
             }
-            ']' => {
+            b']' => {
                 let open_index = bracket_stack
                     .pop()
                     .ok_or(ParseError::UnmatchedCloseBracket)?;
