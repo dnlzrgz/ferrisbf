@@ -6,8 +6,8 @@ pub enum Instruction {
     MoveLeft,             // <
     Inc,                  // +
     Dec,                  // -
-    Output,               // .
-    Input,                // ,
+    Write,                // .
+    Read,                 // ,
     JumpIfZero(usize),    // [
     JumpIfNonZero(usize), // ]
 }
@@ -23,8 +23,8 @@ pub fn parse(source: &str) -> Result<Vec<Instruction>, ParseError> {
             '<' => instructions.push(Instruction::MoveLeft),
             '+' => instructions.push(Instruction::Inc),
             '-' => instructions.push(Instruction::Dec),
-            '.' => instructions.push(Instruction::Output),
-            ',' => instructions.push(Instruction::Input),
+            '.' => instructions.push(Instruction::Write),
+            ',' => instructions.push(Instruction::Read),
             '[' => {
                 // target is known at this time, so we use 0.
                 instructions.push(Instruction::JumpIfZero(0));
@@ -64,8 +64,8 @@ mod tests {
                 Instruction::Dec,
                 Instruction::MoveRight,
                 Instruction::MoveLeft,
-                Instruction::Output,
-                Instruction::Input,
+                Instruction::Write,
+                Instruction::Read,
             ]
         );
     }

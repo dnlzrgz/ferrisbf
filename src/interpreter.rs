@@ -1,4 +1,4 @@
-use crate::RuntimeError;
+use crate::{Instruction, RuntimeError};
 use std::io::{Cursor, Read, Write};
 
 /// A simple Brainfuck virtual machine.
@@ -84,6 +84,46 @@ impl Machine {
             Err(_) => Err(RuntimeError::IoError),
         }
     }
+}
+
+/// Executes a parsed Brainfuck program.
+pub fn run<R: Read, W: Write>(
+    machine: &mut Machine,
+    program: &[Instruction],
+    input: &mut R,
+    output: &mut W,
+) -> Result<(), RuntimeError> {
+    // `pc` stands for "program counter" and tracks which instruction
+    // is going be executed. Since the instructions are already resolved,
+    // pc is just an index into `program`.
+    let mut pc = 0;
+
+    while pc < program.len() {
+        match program[pc] {
+            Instruction::MoveRight => machine.move_right()?,
+            Instruction::MoveLeft => machine.move_left()?,
+            Instruction::Inc => machine.inc(),
+            Instruction::Dec => machine.dec(),
+            Instruction::Write => machine.output(output)?,
+            Instruction::Read => machine.read(input)?,
+            Instruction::JumpIfZero(target) => {
+                if machine.current() == 0 {
+                    pc = target;
+                    continue;
+                }
+            }
+            Instruction::JumpIfNonZero(target) => {
+                if machine.current() != 0 {
+                    pc = target;
+                    continue;
+                }
+            }
+        }
+
+        pc += 1;
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
